@@ -1,0 +1,55 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: unzip -q TodoWeb.zip -d src
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: src/TodoWeb
+
+      - name: Add Android platform
+        run: npx cap add android
+        working-directory: src/TodoWeb
+
+      - name: Apply app icon
+        run: bash scripts/apply-icon.sh
+        working-directory: src/TodoWeb
+
+      - name: Sync web assets
+        run: npx cap sync android
+        working-directory: src/TodoWeb
+
+      - name: Use fixed signing key
+        run: |
+          mkdir -p ~/.android
+          cp src/TodoWeb/signing/debug.keystore ~/.android/debug.keystore
+
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+        working-directory: src/TodoWeb/android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TodoWeb-apk
+          path: src/TodoWeb/android/app/build/outputs/apk/debug/app-debug.apk
